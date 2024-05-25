@@ -6,7 +6,10 @@
   "scripts": {
     "test": "semistandard"
   },
-  "repository": "github:parasti/neverball-solid",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/parasti/neverball-solid.git"
+  },
   "keywords": [
     "neverball",
     "sol",
