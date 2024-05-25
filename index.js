@@ -27,7 +27,7 @@ var SolidCursor = require('cursor').extend({
 var Solid = module.exports = loadSol;
 
 Solid.MAGIC = 0x4c4f53af;
-Solid.VERSIONS = [7, 8];
+Solid.VERSIONS = [7, 8, 9, 10];
 
 /*
  * Material type flags.
@@ -68,6 +68,7 @@ Solid.ITEM_SHRINK = 3;
  * Path flags.
  */
 Solid.PATH_ORIENTED = 1;
+Solid.PATH_PARENTED = 2;
 
 /*
  * Load a SOL file from the given ArrayBuffer.
@@ -126,11 +127,11 @@ function loadSol (buffer) {
   sol.nv = sol.nodes = loadNodes(stream, nc);
   sol.pv = sol.paths = loadPaths(stream, pc);
   sol.bv = sol.bodies = loadBodies(stream, bc);
-  sol.hv = sol.items = loadItems(stream, hc);
-  sol.zv = sol.goals = loadGoals(stream, zc);
-  sol.jv = sol.jumps = loadJumps(stream, jc);
-  sol.xv = sol.switches = loadSwitches(stream, xc);
-  sol.rv = sol.bills = loadBills(stream, rc);
+  sol.hv = sol.items = loadItems(version, stream, hc);
+  sol.zv = sol.goals = loadGoals(version, stream, zc);
+  sol.jv = sol.jumps = loadJumps(version, stream, jc);
+  sol.xv = sol.switches = loadSwitches(version, stream, xc);
+  sol.rv = sol.bills = loadBills(version, stream, rc);
   sol.uv = sol.balls = loadBalls(stream, uc);
   sol.wv = sol.views = loadViews(stream, wc);
   sol.iv = sol.indices = stream.readInt32LEArray(ic);
@@ -322,7 +323,9 @@ function loadPaths (stream, count) {
       pi: stream.readInt32LE(),
       f: stream.readInt32LE(),
       s: stream.readInt32LE(),
-      fl: stream.readInt32LE()
+      fl: stream.readInt32LE(),
+      p0: -1,
+      p1: -1,
     };
 
     if (path.fl & Solid.PATH_ORIENTED) {
@@ -341,6 +344,14 @@ function loadPaths (stream, count) {
     } else {
       // Identity quaternion.
       path.e = new Float32Array([0, 0, 0, 1]);
+    }
+
+    if (path.fl & Solid.PATH_PARENTED) {
+      path.p0 = stream.readInt32LE();
+      path.p1 = stream.readInt32LE();
+
+      if (path.p1 < 0)
+          path.p1 = path.p0;
     }
 
     paths.push(path);
@@ -378,69 +389,105 @@ function loadBodies (stream, count) {
   return bodies;
 }
 
-function loadItems (stream, count) {
+function loadItems (version, stream, count) {
   var items = [];
 
   for (var i = 0; i < count; ++i) {
-    items.push({
+    var item = {
       p: stream.readFloatLEArray(3),
       t: stream.readInt32LE(),
-      n: stream.readInt32LE()
-    });
+      n: stream.readInt32LE(),
+      p0: -1,
+      p1: -1,
+    };
+
+    if (version >= 9) {
+      item.p0 = stream.readInt32LE();
+      item.p1 = stream.readInt32LE();
+    }
+
+    items.push(item);
   }
 
   return items;
 }
 
-function loadGoals (stream, count) {
+function loadGoals (version, stream, count) {
   var goals = [];
 
   for (var i = 0; i < count; ++i) {
-    goals.push({
+    var goal = {
       p: stream.readFloatLEArray(3),
-      r: stream.readFloatLE()
-    });
+      r: stream.readFloatLE(),
+      p0: -1,
+      p1: -1,
+    };
+
+    if (version >= 9) {
+      goal.p0 = stream.readInt32LE();
+      goal.p1 = stream.readInt32LE();
+    }
+
+    goals.push(goal);
   }
 
   return goals;
 }
 
-function loadJumps (stream, count) {
+function loadJumps (version, stream, count) {
   var jumps = [];
 
   for (var i = 0; i < count; ++i) {
-    jumps.push({
+    var jump = {
       p: stream.readFloatLEArray(3),
       q: stream.readFloatLEArray(3),
-      r: stream.readFloatLE()
-    });
+      r: stream.readFloatLE(),
+      p0: -1,
+      p1: -1,
+    };
+
+    if (version >= 9) {
+      jump.p0 = stream.readInt32LE();
+      jump.p1 = stream.readInt32LE();
+    }
+
+    jumps.push(jump);
   }
 
   return jumps;
 }
 
-function loadSwitches (stream, count) {
+function loadSwitches (version, stream, count) {
   var switches = [];
 
   for (var i = 0; i < count; ++i) {
-    switches.push({
+    var swch = {
       p: stream.readFloatLEArray(3),
       r: stream.readFloatLE(),
       pi: stream.readInt32LE(),
       t: stream.readFloatLEArray(2)[0], // Consume unused padding.
       f: stream.readFloatLEArray(2)[0], // Consume unused padding.
-      i: stream.readInt32LE()
-    });
+      i: stream.readInt32LE(),
+      p0: -1,
+      p1: -1,
+    };
+
+    if (version >= 9) {
+      swch.p0 = stream.readInt32LE();
+      swch.p1 = stream.readInt32LE();
+    }
+
+    switches.push(swch);
   }
 
   return switches;
 }
 
-function loadBills (stream, count) {
+function loadBills (version, stream, count) {
   var bills = [];
 
   for (var i = 0; i < count; ++i) {
-    bills.push({
+    var bill = {
       fl: stream.readInt32LE(),
       mi: stream.readInt32LE(),
       t: stream.readFloatLE(),
@@ -451,8 +498,17 @@ function loadBills (stream, count) {
       rx: stream.readFloatLEArray(3),
       ry: stream.readFloatLEArray(3),
       rz: stream.readFloatLEArray(3),
-      p: stream.readFloatLEArray(3)
-    });
+      p: stream.readFloatLEArray(3),
+      p0: -1,
+      p1: -1,
+    };
+
+    if (version >= 9) {
+      bill.p0 = stream.readInt32LE();
+      bill.p1 = stream.readInt32LE();
+    }
+
+    bills.push(bill);
   }
 
   return bills;
