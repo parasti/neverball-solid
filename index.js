@@ -1,25 +1,22 @@
 'use strict';
 
-/*
- * Buffer with a cursor and array extensions.
- */
-var SolidCursor = require('cursor').extend({
-  readFloatLEArray: function (length) {
-    var value = new Float32Array(length);
-    for (var i = 0; i < length; ++i) {
-      value[i] = this.readFloatLE();
-    }
-    return value;
-  },
+var Cursor = require('cursor');
 
-  readInt32LEArray: function (length) {
-    var value = new Int32Array(length);
-    for (var i = 0; i < length; ++i) {
-      value[i] = this.readInt32LE();
-    }
-    return value;
+function readFloatLEArray(stream, length) {
+  var value = new Float32Array(length);
+  for (var i = 0; i < length; ++i) {
+    value[i] = stream.readFloatLE();
   }
-});
+  return value;
+}
+
+function readInt32LEArray(stream, length) {
+  var value = new Int32Array(length);
+  for (var i = 0; i < length; ++i) {
+    value[i] = stream.readInt32LE();
+  }
+  return value;
+}
 
 /*
  * Neverball SOL loader.
@@ -74,7 +71,7 @@ Solid.PATH_PARENTED = 2;
  * Load a SOL file from the given ArrayBuffer.
  */
 function loadSol (buffer) {
-  var stream = SolidCursor(buffer);
+  var stream = Cursor(buffer);
 
   var magic = stream.readInt32LE();
 
@@ -134,7 +131,7 @@ function loadSol (buffer) {
   sol.rv = sol.bills = loadBills(version, stream, rc);
   sol.uv = sol.balls = loadBalls(stream, uc);
   sol.wv = sol.views = loadViews(stream, wc);
-  sol.iv = sol.indices = stream.readInt32LEArray(ic);
+  sol.iv = sol.indices = readInt32LEArray(stream, ic);
 
   if (sol.version <= 7) {
     var i;
@@ -175,10 +172,10 @@ function loadMtrls (stream, count) {
 
   for (var i = 0; i < count; ++i) {
     var mtrl = {
-      d: stream.readFloatLEArray(4),
-      a: stream.readFloatLEArray(4),
-      s: stream.readFloatLEArray(4),
-      e: stream.readFloatLEArray(4),
+      d: readFloatLEArray(stream, 4),
+      a: readFloatLEArray(stream, 4),
+      s: readFloatLEArray(stream, 4),
+      e: readFloatLEArray(stream, 4),
       h: stream.readFloatLE(),
       fl: stream.readInt32LE()
     };
@@ -204,7 +201,7 @@ function loadVerts (stream, count) {
   var verts = [];
 
   for (var i = 0; i < count; ++i) {
-    verts.push(stream.readFloatLEArray(3));
+    verts.push(readFloatLEArray(stream, 3));
   }
 
   return verts;
@@ -228,7 +225,7 @@ function loadSides (stream, count) {
 
   for (var i = 0; i < count; ++i) {
     sides.push({
-      n: stream.readFloatLEArray(3),
+      n: readFloatLEArray(stream, 3),
       d: stream.readFloatLE()
     });
   }
@@ -240,7 +237,7 @@ function loadTexcs (stream, count) {
   var texcs = [];
 
   for (var i = 0; i < count; ++i) {
-    texcs.push(stream.readFloatLEArray(2));
+    texcs.push(readFloatLEArray(stream, 2));
   }
 
   return texcs;
@@ -318,7 +315,7 @@ function loadPaths (stream, count) {
 
   for (i = 0, path; i < count; ++i) {
     path = {
-      p: stream.readFloatLEArray(3),
+      p: readFloatLEArray(stream, 3),
       t: stream.readFloatLE(),
       pi: stream.readInt32LE(),
       f: stream.readInt32LE(),
@@ -329,7 +326,7 @@ function loadPaths (stream, count) {
     };
 
     if (path.fl & Solid.PATH_ORIENTED) {
-      var e = stream.readFloatLEArray(4);
+      var e = readFloatLEArray(stream, 4);
 
       // Convert Neverball's W X Y Z to glMatrix's X Y Z W.
       var w = e[0];
@@ -394,7 +391,7 @@ function loadItems (version, stream, count) {
 
   for (var i = 0; i < count; ++i) {
     var item = {
-      p: stream.readFloatLEArray(3),
+      p: readFloatLEArray(stream, 3),
       t: stream.readInt32LE(),
       n: stream.readInt32LE(),
       p0: -1,
@@ -417,7 +414,7 @@ function loadGoals (version, stream, count) {
 
   for (var i = 0; i < count; ++i) {
     var goal = {
-      p: stream.readFloatLEArray(3),
+      p: readFloatLEArray(stream, 3),
       r: stream.readFloatLE(),
       p0: -1,
       p1: -1,
@@ -439,8 +436,8 @@ function loadJumps (version, stream, count) {
 
   for (var i = 0; i < count; ++i) {
     var jump = {
-      p: stream.readFloatLEArray(3),
-      q: stream.readFloatLEArray(3),
+      p: readFloatLEArray(stream, 3),
+      q: readFloatLEArray(stream, 3),
       r: stream.readFloatLE(),
       p0: -1,
       p1: -1,
@@ -462,11 +459,11 @@ function loadSwitches (version, stream, count) {
 
   for (var i = 0; i < count; ++i) {
     var swch = {
-      p: stream.readFloatLEArray(3),
+      p: readFloatLEArray(stream, 3),
       r: stream.readFloatLE(),
       pi: stream.readInt32LE(),
-      t: stream.readFloatLEArray(2)[0], // Consume unused padding.
-      f: stream.readFloatLEArray(2)[0], // Consume unused padding.
+      t: readFloatLEArray(stream, 2)[0], // Consume unused padding.
+      f: readFloatLEArray(stream, 2)[0], // Consume unused padding.
       i: stream.readInt32LE(),
       p0: -1,
       p1: -1,
@@ -493,12 +490,12 @@ function loadBills (version, stream, count) {
       t: stream.readFloatLE(),
       d: stream.readFloatLE(),
 
-      w: stream.readFloatLEArray(3),
-      h: stream.readFloatLEArray(3),
-      rx: stream.readFloatLEArray(3),
-      ry: stream.readFloatLEArray(3),
-      rz: stream.readFloatLEArray(3),
-      p: stream.readFloatLEArray(3),
+      w: readFloatLEArray(stream, 3),
+      h: readFloatLEArray(stream, 3),
+      rx: readFloatLEArray(stream, 3),
+      ry: readFloatLEArray(stream, 3),
+      rz: readFloatLEArray(stream, 3),
+      p: readFloatLEArray(stream, 3),
       p0: -1,
       p1: -1,
     };
@@ -519,7 +516,7 @@ function loadBalls (stream, count) {
 
   for (var i = 0; i < count; ++i) {
     balls.push({
-      p: stream.readFloatLEArray(3),
+      p: readFloatLEArray(stream, 3),
       r: stream.readFloatLE()
     });
   }
@@ -532,8 +529,8 @@ function loadViews (stream, count) {
 
   for (var i = 0; i < count; ++i) {
     views.push({
-      p: stream.readFloatLEArray(3),
-      q: stream.readFloatLEArray(3)
+      p: readFloatLEArray(stream, 3),
+      q: readFloatLEArray(stream, 3)
     });
   }
 
