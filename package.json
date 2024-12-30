@@ -1,6 +1,6 @@
 {
   "name": "neverball-solid",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Neverball SOL file loader",
   "main": "index.js",
   "scripts": {
