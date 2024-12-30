@@ -157,6 +157,10 @@ function loadDicts (stream, count, byteBuffer) {
     var key = byteBuffer.toString('utf8', ai, byteBuffer.indexOf(0, ai));
     var val = byteBuffer.toString('utf8', aj, byteBuffer.indexOf(0, aj));
 
+    if (val === '\n') {
+      val = '';
+    }
+
     if (key === 'message') {
       val = val.replace(/\\/g, '\n');
     }
